@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inventory & Transport Manager</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background:#f1f5f9; color:#0f172a; }
+  .app { display:flex; min-height:100vh; }
+  .sidebar { width:250px; background:#0f172a; color:#cbd5e1; padding:1.5rem 1rem; position:fixed; top:0; bottom:0; left:0; overflow-y:auto; }
+  .sidebar h1 { color:#fff; font-size:1.1rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.5rem; }
+  .sidebar nav a { display:flex; align-items:center; gap:.75rem; padding:.65rem .9rem; border-radius:.5rem; color:#cbd5e1; text-decoration:none; font-size:.9rem; margin-bottom:.25rem; cursor:pointer; }
+  .sidebar nav a:hover { background:#1e293b; color:#fff; }
+  .sidebar nav a.active { background:#4f46e5; color:#fff; }
+  .main { margin-left:250px; flex:1; padding:2rem; max-width:1400px; }
+  .page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:1rem; }
+  .page-header h2 { font-size:1.6rem; }
+  .page-header p { color:#64748b; font-size:.875rem; margin-top:.25rem; }
+  .btn { padding:.55rem 1.1rem; border:none; border-radius:.5rem; font-size:.875rem; font-weight:500; cursor:pointer; transition:.15s; display:inline-flex; align-items:center; justify-content:center; gap:.4rem; }
+  .btn-primary { background:#4f46e5; color:#fff; } .btn-primary:hover { background:#4338ca; }
+  .btn-secondary { background:#fff; color:#334155; border:1px solid #cbd5e1; } .btn-secondary:hover { background:#f8fafc; }
+  .btn-danger { background:#dc2626; color:#fff; } .btn-danger:hover { background:#b91c1c; }
+  .btn-success { background:#059669; color:#fff; } .btn-success:hover { background:#047857; }
+  .btn-sm { padding:.35rem .7rem; font-size:.78rem; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .card { background:#fff; border-radius:.75rem; padding:1.1rem 1.25rem; box-shadow:0 1px 3px rgba(0,0,0,.07); border:1px solid #e2e8f0; display:flex; flex-direction:column; }
+  .card .label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; font-weight:600; }
+  .card .value { font-size:1.85rem; font-weight:700; margin-top:.35rem; color:#0f172a; }
+  .card.indigo .value { color:#4f46e5; } .card.emerald .value { color:#059669; }
+  .card.amber .value { color:#d97706; } .card.rose .value { color:#e11d48; }
+  .card.teal .value { color:#0d9488; }
+  .card .pay-btn { margin-top:.7rem; width:100%; }
+  .panel { background:#fff; border-radius:.75rem; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,.05); padding:1.25rem; margin-bottom:1.5rem; }
+  .panel h3 { font-size:1.05rem; margin-bottom:1rem; padding-bottom:.6rem; border-bottom:1px solid #f1f5f9; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  th { text-align:left; padding:.6rem .7rem; background:#f8fafc; color:#475569; font-weight:600; font-size:.75rem; text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid #e2e8f0; }
+  td { padding:.6rem .7rem; border-bottom:1px solid #f1f5f9; }
+  tbody tr:hover { background:#f8fafc; }
+  .table-wrap { overflow-x:auto; }
+  .grid-2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:1.5rem; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:1rem; }
+  .field { display:flex; flex-direction:column; gap:.35rem; }
+  .field label { font-size:.78rem; font-weight:600; color:#475569; }
+  .field input, .field select, .field textarea { padding:.55rem .7rem; border:1px solid #cbd5e1; border-radius:.5rem; font-size:.875rem; font-family:inherit; outline:none; transition:.15s; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color:#4f46e5; box-shadow:0 0 0 3px rgba(79,70,229,.12); }
+  .badge { display:inline-block; padding:.2rem .6rem; border-radius:9999px; font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em; }
+  .badge-planned { background:#e0e7ff; color:#3730a3; } .badge-loading { background:#fef3c7; color:#92400e; }
+  .badge-dispatched { background:#dbeafe; color:#1e40af; } .badge-delivered { background:#d1fae5; color:#065f46; }
+  .badge-paid { background:#d1fae5; color:#065f46; } .badge-unpaid { background:#fee2e2; color:#991b1b; }
+  .badge-partial { background:#fef3c7; color:#92400e; }
+  .paid-tick { color:#059669; font-size:.7rem; margin-left:.25rem; }
+  .filters { display:flex; gap:.75rem; flex-wrap:wrap; align-items:end; margin-bottom:1rem; }
+  .filters .field { min-width:150px; }
+  .empty { text-align:center; padding:2.5rem 1rem; color:#94a3b8; font-size:.9rem; }
+  .toast { position:fixed; bottom:1.5rem; right:1.5rem; background:#0f172a; color:#fff; padding:.8rem 1.2rem; border-radius:.5rem; font-size:.85rem; box-shadow:0 10px 25px rgba(0,0,0,.2); z-index:100; animation:slideIn .25s ease; }
+  @keyframes slideIn { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  .modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; padding:1rem; z-index:50; }
+  .modal { background:#fff; border-radius:.75rem; padding:1.5rem; max-width:640px; width:100%; max-height:90vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .modal h3 { margin-bottom:1rem; }
+  .modal-actions { display:flex; justify-content:flex-end; gap:.6rem; margin-top:1.25rem; }
+  .stat-row { display:flex; justify-content:space-between; padding:.5rem 0; border-bottom:1px solid #f1f5f9; font-size:.85rem; }
+  .stat-row:last-child { border:none; }
+  .stat-row .k { color:#64748b; } .stat-row .v { font-weight:600; }
+  .section-title { font-size:.8rem; text-transform:uppercase; letter-spacing:.05em; color:#64748b; font-weight:700; margin:1rem 0 .5rem; }
+  .section-header { display:flex; justify-content:space-between; align-items:center; margin:1rem 0 .5rem; gap:.75rem; flex-wrap:wrap; }
+  .section-header .section-title { margin:0; }
+  .login-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg,#1e293b,#312e81); padding:1rem; }
+  .login-card { background:#fff; padding:2rem; border-radius:1rem; width:100%; max-width:400px; box-shadow:0 25px 60px rgba(0,0,0,.3); }
+  .login-card h2 { margin-bottom:.25rem; } .login-card .sub { color:#64748b; font-size:.85rem; margin-bottom:1.5rem; }
+  .login-error { background:#fee2e2; color:#991b1b; padding:.55rem .75rem; border-radius:.5rem; font-size:.82rem; margin-bottom:.75rem; border:1px solid #fecaca; }
+  .login-hint { background:#f1f5f9; color:#475569; padding:.6rem .75rem; border-radius:.5rem; font-size:.72rem; margin-top:1rem; line-height:1.6; }
+  .login-hint strong { color:#0f172a; }
+  .mobile-header { display:none; }
+  @media (max-width: 900px) {
+    .sidebar { transform:translateX(-100%); transition:.25s; z-index:60; }
+    .sidebar.open { transform:translateX(0); }
+    .main { margin-left:0; padding:1rem; }
+    .mobile-header { display:flex; align-items:center; justify-content:space-between; background:#0f172a; color:#fff; padding:.8rem 1rem; position:sticky; top:0; z-index:40; }
+    .mobile-header button { background:none; border:none; color:#fff; font-size:1.4rem; cursor:pointer; }
+    .cards { grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); }
+    .card .value { font-size:1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ============================================================
+// CONFIGURATION — Replace with your Supabase credentials
+// ============================================================
+const SUPABASE_URL = 'https://pcqfyvovykbvcjyisxsa.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_n3qtBuyut52KQw1_Atj8VQ_gb536z-N';
+
+// ============================================================
+// USER ACCOUNTS (hard-coded demo credentials)
+// ============================================================
+const ACCOUNTS = [
+  { username: 'basset',  password: 'wassim123', role: 'admin', displayName: 'Basset (Admin)' },
+  { username: 'hicham',  password: '00000',     role: 'user',  displayName: 'Hicham (User)' },
+];
+
+// ============================================================
+// PRODUCT DEFINITIONS
+// ============================================================
+const PRODUCTS = [
+  { key: 'somier_simple',        label: 'Somier Simple',        group: 'somier' },
+  { key: 'somier_coffret',       label: 'Somier Coffret',       group: 'somier' },
+  { key: 'pouf',                 label: 'Pouf',                 group: 'accessoire' },
+  { key: 'miror',                label: 'Miror',                group: 'accessoire' },
+  { key: 'matelas_20',           label: 'Matelas 20',           group: 'matelas' },
+  { key: 'matelas_25',           label: 'Matelas 25',           group: 'matelas' },
+  { key: 'matelas_ouvrant_20',   label: 'Matelas Ouvrant 20',   group: 'matelas' },
+  { key: 'matelas_ouvrant_25',   label: 'Matelas Ouvrant 25',   group: 'matelas' },
+  { key: 'kancairi',             label: 'Kancairi',             group: 'accessoire' },
+];
+const SOMIER_KEYS  = PRODUCTS.filter(p => p.group === 'somier').map(p => p.key);
+const MATELAS_KEYS = PRODUCTS.filter(p => p.group === 'matelas').map(p => p.key);
+const ACCESS_KEYS  = PRODUCTS.filter(p => p.group === 'accessoire').map(p => p.key);
+const ALL_KEYS     = PRODUCTS.map(p => p.key);
+const STATUSES = ['planned','loading','dispatched','delivered'];
+
+// ============================================================
+// LOCAL STORE
+// ============================================================
+const DB = {
+  entries: JSON.parse(localStorage.getItem('it_entries') || '[]'),
+  transports: JSON.parse(localStorage.getItem('it_transports') || '[]'),
+  save() {
+    localStorage.setItem('it_entries', JSON.stringify(this.entries));
+    localStorage.setItem('it_transports', JSON.stringify(this.transports));
+  }
+};
+
+const state = {
+  page: 'login',
+  isAdmin: false,
+  currentUser: null,
+  loginError: '',
+  sidebarOpen: false,
+  entries: [...DB.entries],
+  transports: [...DB.transports],
+  filters: { from: '', to: '', tp: '', search: '', payment: '' },
+  transportFilter: { status: '', search: '' },
+  editingEntry: null,
+  editingTransport: null,
+  viewingTransport: null,
+  toast: null,
+};
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function uid() { return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2,9); }
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(d) { if (!d) return '—'; const dt = new Date(d + 'T00:00:00'); return dt.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
+function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function num(v) { const n = parseInt(v, 10); return isNaN(n) || n < 0 ? 0 : n; }
+function sumKeys(obj, keys) { return keys.reduce((a,k) => a + (Number(obj[k]) || 0), 0); }
+
+function isProductPaid(entry, key) {
+  if (!entry) return false;
+  if (entry.paid === true) return true;
+  return !!(entry.paid_products && entry.paid_products[key]);
+}
+
+function entryPaymentStatus(entry) {
+  let paidCount = 0;
+  ALL_KEYS.forEach(k => { if (isProductPaid(entry, k)) paidCount++; });
+  if (paidCount === 0) return { label: 'Unpaid', cls: 'unpaid' };
+  if (paidCount === ALL_KEYS.length) return { label: 'Paid', cls: 'paid' };
+  return { label: `Partial (${paidCount}/${ALL_KEYS.length})`, cls: 'partial' };
+}
+
+function computeTotals(entries) {
+  const t = {};
+  PRODUCTS.forEach(p => t[p.key] = 0);
+  entries.forEach(e => {
+    PRODUCTS.forEach(p => {
+      if (!isProductPaid(e, p.key)) t[p.key] += Number(e[p.key]) || 0;
+    });
+  });
+  t.total_somiers = sumKeys(t, SOMIER_KEYS);
+  t.total_matelas = sumKeys(t, MATELAS_KEYS);
+  t.total_accessoires = sumKeys(t, ACCESS_KEYS);
+  t.total_all = sumKeys(t, ALL_KEYS);
+  return t;
+}
+
+function computePaidTotals(entries) {
+  const t = {};
+  PRODUCTS.forEach(p => t[p.key] = 0);
+  entries.forEach(e => {
+    PRODUCTS.forEach(p => {
+      if (isProductPaid(e, p.key)) t[p.key] += Number(e[p.key]) || 0;
+    });
+  });
+  t.total_somiers = sumKeys(t, SOMIER_KEYS);
+  t.total_matelas = sumKeys(t, MATELAS_KEYS);
+  t.total_accessoires = sumKeys(t, ACCESS_KEYS);
+  t.total_all = sumKeys(t, ALL_KEYS);
+  return t;
+}
+
+function getWeekKey(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - day);
+  return `${d.getFullYear()}-W${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function getMonthKey(dateStr) { return dateStr.slice(0, 7); }
+
+function applyFilters(entries, f) {
+  return entries.filter(e => {
+    if (f.from && e.entry_date < f.from) return false;
+    if (f.to && e.entry_date > f.to) return false;
+    if (f.tp && e.tp_name !== f.tp) return false;
+    if (f.payment === 'unpaid') {
+      const st = entryPaymentStatus(e);
+      if (st.label === 'Paid') return false;
+    }
+    if (f.payment === 'paid') {
+      const st = entryPaymentStatus(e);
+      if (st.label === 'Unpaid') return false;
+    }
+    if (f.search) {
+      const q = f.search.toLowerCase();
+      if (!(e.tp_name || '').toLowerCase().includes(q) && !(e.entry_date || '').includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function showToast(msg, type = 'success') {
+  state.toast = { msg, type };
+  render();
+  setTimeout(() => { state.toast = null; render(); }, 2600);
+}
+
+// ============================================================
+// RENDER HELPERS
+// ============================================================
+function summaryCard(label, value, color = '') {
+  return `<div class="card ${color}"><div class="label">${esc(label)}</div><div class="value">${value}</div></div>`;
+}
+
+function productCard(product, value, color) {
+  const btn = state.isAdmin
+    ? `<button class="btn btn-success btn-sm pay-btn" onclick="markProductAsPaid('${product.key}')">💰 Mark Paid</button>`
+    : '';
+  return `<div class="card ${color}">
+    <div class="label">${esc(product.label)}</div>
+    <div class="value">${value}</div>
+    ${btn}
+  </div>`;
+}
+
+function statusBadge(s) {
+  return `<span class="badge badge-${s}">${esc(s)}</span>`;
+}
+function paymentBadge(entry) {
+  const st = entryPaymentStatus(entry);
+  return `<span class="badge badge-${st.cls}">${esc(st.label)}</span>`;
+}
+function paidTick(entry, key) {
+  return isProductPaid(entry, key) ? '<span class="paid-tick" title="Paid">✔</span>' : '';
+}
+
+function entriesTable(entries, columns, title) {
+  if (!entries.length) return `<div class="panel"><h3>${esc(title)}</h3><div class="empty">No records found</div></div>`;
+  const head = columns.map(c => `<th>${esc(c.label)}</th>`).join('');
+  const rows = entries.map(e => {
+    const cells = columns.map(c => {
+      let v = e[c.key];
+      if (c.key === 'entry_date') v = fmtDate(v);
+      const align = c.key === 'entry_date' || c.key === 'tp_name' ? '' : ' style="text-align:right;font-variant-numeric:tabular-nums"';
+      return `<td${align}>${esc(v ?? 0)}</td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
+  }).join('');
+  return `<div class="panel"><h3>${esc(title)}</h3><div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+
+// ============================================================
+// PER-PRODUCT PAYMENT ACTIONS
+// ============================================================
+function markProductAsPaid(key) {
+  if (!state.isAdmin) { showToast('Only admins can perform this action', 'error'); return; }
+  const product = PRODUCTS.find(p => p.key === key);
+  if (!product) return;
+
+  const candidates = state.entries.filter(e => !isProductPaid(e, key) && Number(e[key]) > 0);
+  if (!candidates.length) { showToast(`Nothing to pay for ${product.label}`, 'error'); return; }
+
+  if (!confirm(`Mark ALL "${product.label}" quantities as PAID?\n\nThis resets only the "${product.label}" total to 0.\nOther products stay unaffected.`)) return;
+
+  const now = new Date().toISOString();
+  state.entries = state.entries.map(e => {
+    const pp = { ...(e.paid_products || {}) };
+    pp[key] = true;
+    return { ...e, paid_products: pp, paid_at: e.paid_at || now };
+  });
+  DB.entries = state.entries; DB.save();
+  showToast(`✅ ${product.label} marked as paid.`);
+  render();
+}
+
+function markProductAsUnpaid(key) {
+  if (!state.isAdmin) return;
+  const product = PRODUCTS.find(p => p.key === key);
+  if (!product) return;
+  if (!confirm(`Undo payment for "${product.label}"? Its quantities will return to the unpaid totals.`)) return;
+  state.entries = state.entries.map(e => {
+    const pp = { ...(e.paid_products || {}) };
+    pp[key] = false;
+    return { ...e, paid_products: pp };
+  });
+  DB.entries = state.entries; DB.save();
+  showToast(`${product.label} marked as unpaid`);
+  render();
+}
+
+// ============================================================
+// PAGE: DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const filtered = applyFilters(state.entries, state.filters);
+  const t = computeTotals(filtered);
+  const paidTotals = computePaidTotals(state.entries);
+  const tpNames = [...new Set(state.entries.map(e => e.tp_name))].sort();
+
+  const today = todayISO();
+  const todayEntries = filtered.filter(e => e.entry_date === today);
+  const weekEntries = filtered.filter(e => getWeekKey(e.entry_date) === getWeekKey(today));
+  const monthEntries = filtered.filter(e => getMonthKey(e.entry_date) === getMonthKey(today));
+
+  const daily = computeTotals(todayEntries);
+  const weekly = computeTotals(weekEntries);
+  const monthly = computeTotals(monthEntries);
+
+  const allTransports = state.transports.length;
+
+  const somierCols = [
+    { key: 'entry_date', label: 'Date' },
+    { key: 'tp_name', label: 'TP Name' },
+    ...SOMIER_KEYS.map(k => ({ key: k, label: PRODUCTS.find(p => p.key === k).label })),
+    { key: 'total', label: 'Total' },
+  ];
+  const somierRows = filtered.map(e => ({ ...e, total: sumKeys(e, SOMIER_KEYS) }));
+
+  const matelasCols = [
+    { key: 'entry_date', label: 'Date' },
+    { key: 'tp_name', label: 'TP Name' },
+    ...MATELAS_KEYS.map(k => ({ key: k, label: PRODUCTS.find(p => p.key === k).label })),
+    ...ACCESS_KEYS.map(k => ({ key: k, label: PRODUCTS.find(p => p.key === k).label })),
+    { key: 'total', label: 'Total' },
+  ];
+  const matelasRows = filtered.map(e => ({ ...e, total: sumKeys(e, [...MATELAS_KEYS, ...ACCESS_KEYS]) }));
+
+  return `
+    <div class="page-header">
+      <div><h2>Dashboard</h2><p>Live totals calculated from all unpaid database records</p></div>
+      <button class="btn btn-primary" onclick="navigate('new-entry')">+ New Entry</button>
+    </div>
+
+    <div class="panel">
+      <div class="filters">
+        <div class="field"><label>From Date</label><input type="date" value="${esc(state.filters.from)}" onchange="updateFilter('from', this.value)" /></div>
+        <div class="field"><label>To Date</label><input type="date" value="${esc(state.filters.to)}" onchange="updateFilter('to', this.value)" /></div>
+        <div class="field"><label>TP Name</label><select onchange="updateFilter('tp', this.value)">
+          <option value="">All TP Names</option>
+          ${tpNames.map(n => `<option value="${esc(n)}" ${state.filters.tp === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>Payment Status</label><select onchange="updateFilter('payment', this.value)">
+          <option value="">All</option>
+          <option value="unpaid" ${state.filters.payment === 'unpaid' ? 'selected' : ''}>Unpaid Only</option>
+          <option value="paid" ${state.filters.payment === 'paid' ? 'selected' : ''}>Paid Only</option>
+        </select></div>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">Clear Filters</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      ${summaryCard('Transport Records', allTransports, 'indigo')}
+      ${summaryCard('Entries Shown', filtered.length, '')}
+      ${summaryCard('Total Products (Unpaid)', t.total_all, 'emerald')}
+      ${summaryCard('Total Somiers (Unpaid)', t.total_somiers, 'amber')}
+      ${summaryCard('Total Paid (Archived)', paidTotals.total_all, '')}
+    </div>
+
+    <div class="section-title">Somier Totals (Unpaid)</div>
+    <div class="cards">
+      ${productCard(PRODUCTS.find(p=>p.key==='somier_simple'), t.somier_simple, 'amber')}
+      ${productCard(PRODUCTS.find(p=>p.key==='somier_coffret'), t.somier_coffret, 'amber')}
+      ${summaryCard('Total Somiers', t.total_somiers, 'amber')}
+    </div>
+
+    <div class="section-title">Mattress Totals (Unpaid)</div>
+    <div class="cards">
+      ${productCard(PRODUCTS.find(p=>p.key==='matelas_20'), t.matelas_20, 'indigo')}
+      ${productCard(PRODUCTS.find(p=>p.key==='matelas_25'), t.matelas_25, 'indigo')}
+      ${productCard(PRODUCTS.find(p=>p.key==='matelas_ouvrant_20'), t.matelas_ouvrant_20, 'indigo')}
+      ${productCard(PRODUCTS.find(p=>p.key==='matelas_ouvrant_25'), t.matelas_ouvrant_25, 'indigo')}
+      ${summaryCard('Total Matelas', t.total_matelas, 'indigo')}
+    </div>
+
+    <div class="section-title">Accessory Totals (Unpaid)</div>
+    <div class="cards">
+      ${productCard(PRODUCTS.find(p=>p.key==='pouf'), t.pouf, 'rose')}
+      ${productCard(PRODUCTS.find(p=>p.key==='kancairi'), t.kancairi, 'rose')}
+      ${productCard(PRODUCTS.find(p=>p.key==='miror'), t.miror, 'teal')}
+      ${summaryCard('Total Accessoires', t.total_accessoires, 'rose')}
+    </div>
+
+    <div class="section-title">Period Breakdown</div>
+    <div class="grid-2">
+      <div class="panel"><h3>Daily (${esc(today)})</h3>
+        <div class="stat-row"><span class="k">Entries</span><span class="v">${todayEntries.length}</span></div>
+        <div class="stat-row"><span class="k">Somiers</span><span class="v">${daily.total_somiers}</span></div>
+        <div class="stat-row"><span class="k">Matelas</span><span class="v">${daily.total_matelas}</span></div>
+        <div class="stat-row"><span class="k">Accessoires</span><span class="v">${daily.total_accessoires}</span></div>
+        <div class="stat-row"><span class="k">Total</span><span class="v">${daily.total_all}</span></div>
+      </div>
+      <div class="panel"><h3>Weekly</h3>
+        <div class="stat-row"><span class="k">Entries</span><span class="v">${weekEntries.length}</span></div>
+        <div class="stat-row"><span class="k">Somiers</span><span class="v">${weekly.total_somiers}</span></div>
+        <div class="stat-row"><span class="k">Matelas</span><span class="v">${weekly.total_matelas}</span></div>
+        <div class="stat-row"><span class="k">Accessoires</span><span class="v">${weekly.total_accessoires}</span></div>
+        <div class="stat-row"><span class="k">Total</span><span class="v">${weekly.total_all}</span></div>
+      </div>
+      <div class="panel"><h3>Monthly</h3>
+        <div class="stat-row"><span class="k">Entries</span><span class="v">${monthEntries.length}</span></div>
+        <div class="stat-row"><span class="k">Somiers</span><span class="v">${monthly.total_somiers}</span></div>
+        <div class="stat-row"><span class="k">Matelas</span><span class="v">${monthly.total_matelas}</span></div>
+        <div class="stat-row"><span class="k">Accessoires</span><span class="v">${monthly.total_accessoires}</span></div>
+        <div class="stat-row"><span class="k">Total</span><span class="v">${monthly.total_all}</span></div>
+      </div>
+      <div class="panel"><h3>All Time (Unpaid)</h3>
+        <div class="stat-row"><span class="k">Entries</span><span class="v">${filtered.length}</span></div>
+        <div class="stat-row"><span class="k">Somiers</span><span class="v">${t.total_somiers}</span></div>
+        <div class="stat-row"><span class="k">Matelas</span><span class="v">${t.total_matelas}</span></div>
+        <div class="stat-row"><span class="k">Accessoires</span><span class="v">${t.total_accessoires}</span></div>
+        <div class="stat-row"><span class="k">Total</span><span class="v">${t.total_all}</span></div>
+      </div>
+    </div>
+
+    ${entriesTable(somierRows, somierCols, 'Transport List — Somiers (Unpaid)')}
+    ${entriesTable(matelasRows, matelasCols, 'Transport List — Mattresses & Accessories (Unpaid)')}
+  `;
+}
+
+// ============================================================
+// PAGE: NEW ENTRY
+// ============================================================
+function renderNewEntry() {
+  const f = state.editingEntry || {
+    tp_name: '', entry_date: todayISO(), notes: '',
+    ...Object.fromEntries(PRODUCTS.map(p => [p.key, 0])),
+  };
+  const isEdit = !!state.editingEntry;
+
+  const fields = PRODUCTS.map(p => `
+    <div class="field">
+      <label>${esc(p.label)}</label>
+      <input type="number" min="0" step="1" id="in-${p.key}" value="${num(f[p.key])}"
+             oninput="updateEntryTotals()" />
+    </div>`).join('');
+
+  return `
+    <div class="page-header">
+      <div><h2>${isEdit ? 'Edit Entry' : 'New Entry'}</h2><p>${isEdit ? 'Update an existing record' : 'Record product quantities for a transport point'}</p></div>
+      ${isEdit ? `<button class="btn btn-secondary" onclick="cancelEditEntry()">Cancel Edit</button>` : ''}
+    </div>
+
+    <div class="panel">
+      <div class="form-grid">
+        <div class="field"><label>TP Name *</label><input type="text" id="in-tp_name" value="${esc(f.tp_name)}" placeholder="e.g. TP Alger Centre" /></div>
+        <div class="field"><label>Date *</label><input type="date" id="in-entry_date" value="${esc(f.entry_date)}" /></div>
+      </div>
+
+      <div class="section-title">Product Quantities</div>
+      <div class="form-grid">${fields}</div>
+
+      <div class="section-title">Notes</div>
+      <div class="field"><textarea id="in-notes" rows="2" placeholder="Optional notes...">${esc(f.notes)}</textarea></div>
+
+      <div class="panel" style="margin-top:1.25rem;background:#f8fafc;border:none">
+        <div class="cards" style="margin:0">
+          ${summaryCard('Total Somiers', `<span id="tot-somiers">0</span>`, 'amber')}
+          ${summaryCard('Total Matelas', `<span id="tot-matelas">0</span>`, 'indigo')}
+          ${summaryCard('Total Accessoires', `<span id="tot-accessoires">0</span>`, 'rose')}
+          ${summaryCard('Grand Total', `<span id="tot-all">0</span>`, 'emerald')}
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="navigate('dashboard')">Cancel</button>
+        <button class="btn btn-primary" id="save-entry-btn" onclick="saveEntry()">
+          ${isEdit ? 'Update Entry' : 'Save Entry'}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function updateEntryTotals() {
+  const vals = {};
+  PRODUCTS.forEach(p => { const el = document.getElementById('in-' + p.key); vals[p.key] = el ? num(el.value) : 0; });
+  const s = sumKeys(vals, SOMIER_KEYS), m = sumKeys(vals, MATELAS_KEYS), a = sumKeys(vals, ACCESS_KEYS);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('tot-somiers', s); set('tot-matelas', m); set('tot-accessoires', a); set('tot-all', s + m + a);
+}
+
+let savingEntry = false;
+function saveEntry() {
+  if (savingEntry) return;
+  const tp = document.getElementById('in-tp_name').value.trim();
+  const date = document.getElementById('in-entry_date').value;
+
+  if (!tp) { showToast('TP Name is required', 'error'); return; }
+  if (!date) { showToast('Date is required', 'error'); return; }
+
+  const payload = { tp_name: tp, entry_date: date, notes: document.getElementById('in-notes').value.trim() };
+  PRODUCTS.forEach(p => { payload[p.key] = num(document.getElementById('in-' + p.key).value); });
+
+  const totalQty = sumKeys(payload, ALL_KEYS);
+  if (totalQty === 0) { showToast('Enter at least one product quantity', 'error'); return; }
+
+  if (!state.editingEntry) {
+    const dup = state.entries.find(e => e.tp_name.toLowerCase() === tp.toLowerCase() && e.entry_date === date);
+    if (dup && !confirm(`An entry for "${tp}" on ${date} already exists. Save anyway?`)) return;
+  }
+
+  savingEntry = true;
+  const btn = document.getElementById('save-entry-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  if (state.editingEntry) {
+    const idx = state.entries.findIndex(e => e.id === state.editingEntry.id);
+    state.entries[idx] = { ...state.editingEntry, ...payload, updated_at: new Date().toISOString() };
+    state.editingEntry = null;
+  } else {
+    state.entries.unshift({
+      id: uid(), ...payload,
+      paid_products: Object.fromEntries(ALL_KEYS.map(k => [k, false])),
+      paid_at: null,
+      created_at: new Date().toISOString(),
+    });
+  }
+
+  DB.entries = state.entries; DB.save();
+  savingEntry = false;
+  showToast('Entry saved successfully');
+  navigate('dashboard');
+}
+
+// ============================================================
+// PAGE: ALL ENTRIES
+// ============================================================
+function renderAllEntries() {
+  const filtered = applyFilters(state.entries, state.filters);
+  const tpNames = [...new Set(state.entries.map(e => e.tp_name))].sort();
+
+  const rows = filtered.map(e => `
+    <tr>
+      <td>${fmtDate(e.entry_date)}</td>
+      <td><strong>${esc(e.tp_name)}</strong></td>
+      ${PRODUCTS.map(p => `<td style="text-align:right;font-variant-numeric:tabular-nums">${num(e[p.key])}${paidTick(e, p.key)}</td>`).join('')}
+      <td style="text-align:right;font-weight:700">${sumKeys(e, ALL_KEYS)}</td>
+      <td>${paymentBadge(e)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="editEntry('${e.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEntry('${e.id}')">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  return `
+    <div class="page-header">
+      <div><h2>All Entries</h2><p>${filtered.length} of ${state.entries.length} records</p></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="exportEntriesExcel()">Export Excel</button>
+        <button class="btn btn-primary" onclick="navigate('new-entry')">+ New Entry</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="filters">
+        <div class="field"><label>Search</label><input type="text" value="${esc(state.filters.search)}" placeholder="TP name or date..." oninput="updateFilter('search', this.value)" /></div>
+        <div class="field"><label>From</label><input type="date" value="${esc(state.filters.from)}" onchange="updateFilter('from', this.value)" /></div>
+        <div class="field"><label>To</label><input type="date" value="${esc(state.filters.to)}" onchange="updateFilter('to', this.value)" /></div>
+        <div class="field"><label>TP Name</label><select onchange="updateFilter('tp', this.value)">
+          <option value="">All</option>
+          ${tpNames.map(n => `<option value="${esc(n)}" ${state.filters.tp === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>Payment</label><select onchange="updateFilter('payment', this.value)">
+          <option value="">All</option>
+          <option value="unpaid" ${state.filters.payment === 'unpaid' ? 'selected' : ''}>Unpaid Only</option>
+          <option value="paid" ${state.filters.payment === 'paid' ? 'selected' : ''}>Paid Only</option>
+        </select></div>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">Clear</button>
+      </div>
+    </div>
+
+    ${state.isAdmin ? `
+      <div class="panel">
+        <h3>Quick Payment Actions (Admin)</h3>
+        <p style="font-size:.8rem;color:#64748b;margin-bottom:.75rem">Click any product to mark all its unpaid quantities as paid. Only that product's total is reset.</p>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          ${PRODUCTS.map(p => `<button class="btn btn-success btn-sm" onclick="markProductAsPaid('${p.key}')">💰 ${esc(p.label)}</button>`).join('')}
+        </div>
+      </div>` : ''}
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Date</th><th>TP Name</th>
+            ${PRODUCTS.map(p => `<th style="text-align:right">${esc(p.label)}</th>`).join('')}
+            <th style="text-align:right">Total</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody>${rows || `<tr><td colspan="${PRODUCTS.length + 5}" class="empty">No entries found</td></tr>`}</tbody>
+        </table>
+      </div>
+      <p style="font-size:.75rem;color:#64748b;margin-top:.6rem">✔ = this product is already paid for this entry.</p>
+    </div>
+  `;
+}
+
+function editEntry(id) {
+  const e = state.entries.find(x => x.id === id);
+  if (!e) return;
+  state.editingEntry = { ...e };
+  navigate('new-entry');
+}
+function cancelEditEntry() { state.editingEntry = null; navigate('all-entries'); }
+function deleteEntry(id) {
+  if (!confirm('Delete this entry permanently?')) return;
+  state.entries = state.entries.filter(e => e.id !== id);
+  DB.entries = state.entries; DB.save();
+  showToast('Entry deleted');
+}
+
+// ============================================================
+// PAGE: TRANSPORTS
+// ============================================================
+function renderTransports() {
+  let list = [...state.transports];
+  if (state.transportFilter.status) list = list.filter(t => t.status === state.transportFilter.status);
+  if (state.transportFilter.search) {
+    const q = state.transportFilter.search.toLowerCase();
+    list = list.filter(t => (t.reference + t.tp_name + (t.destination||'') + (t.wilaya||'')).toLowerCase().includes(q));
+  }
+
+  const rows = list.map(t => {
+    const total = (t.items || []).reduce((a, i) => a + num(i.quantity), 0);
+    return `<tr>
+      <td><strong>${esc(t.reference)}</strong></td>
+      <td>${fmtDate(t.transport_date)}</td>
+      <td>${esc(t.tp_name)}</td>
+      <td>${esc(t.destination || '—')}${t.wilaya ? ' / ' + esc(t.wilaya) : ''}</td>
+      <td>${esc(t.driver_name || '—')}</td>
+      <td>${statusBadge(t.status)}</td>
+      <td style="text-align:right;font-weight:700">${total}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="viewTransport('${t.id}')">Open</button>
+        <button class="btn btn-secondary btn-sm" onclick="editTransport('${t.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteTransport('${t.id}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-header">
+      <div><h2>Transports</h2><p>${list.length} transport operations</p></div>
+      <button class="btn btn-primary" onclick="newTransport()">+ New Transport</button>
+    </div>
+
+    <div class="panel">
+      <div class="filters">
+        <div class="field"><label>Search</label><input type="text" value="${esc(state.transportFilter.search)}" placeholder="Reference, TP, destination..." oninput="state.transportFilter.search=this.value;render()" /></div>
+        <div class="field"><label>Status</label><select onchange="state.transportFilter.status=this.value;render()">
+          <option value="">All Statuses</option>
+          ${STATUSES.map(s => `<option value="${s}" ${state.transportFilter.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+        </select></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Reference</th><th>Date</th><th>TP Name</th><th>Destination</th><th>Driver</th><th>Status</th><th style="text-align:right">Qty</th><th>Actions</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="8" class="empty">No transports found</td></tr>`}</tbody>
+        </table>
+      </div>
+    </div>
+
+    ${state.viewingTransport ? renderTransportDetail() : ''}
+    ${state.editingTransport ? renderTransportForm() : ''}
+  `;
+}
+
+function renderTransportDetail() {
+  const t = state.viewingTransport;
+  const items = (t.items || []).filter(i => num(i.quantity) > 0);
+  const total = items.reduce((a, i) => a + num(i.quantity), 0);
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeTransportDetail()">
+      <div class="modal">
+        <div style="display:flex;justify-content:space-between;align-items:start">
+          <div>
+            <h3>${esc(t.reference)} ${statusBadge(t.status)}</h3>
+            <p style="color:#64748b;font-size:.85rem">${fmtDate(t.transport_date)} — ${esc(t.tp_name)}</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="closeTransportDetail()">Close</button>
+        </div>
+        <div style="margin-top:1rem">
+          <div class="stat-row"><span class="k">Destination</span><span class="v">${esc(t.destination || '—')}</span></div>
+          <div class="stat-row"><span class="k">Wilaya</span><span class="v">${esc(t.wilaya || '—')}</span></div>
+          <div class="stat-row"><span class="k">Driver</span><span class="v">${esc(t.driver_name || '—')}</span></div>
+          <div class="stat-row"><span class="k">Driver Phone</span><span class="v">${esc(t.driver_phone || '—')}</span></div>
+          <div class="stat-row"><span class="k">Notes</span><span class="v">${esc(t.notes || '—')}</span></div>
+        </div>
+        <div class="section-title">Product List</div>
+        <table>
+          <thead><tr><th>Product</th><th style="text-align:right">Quantity</th></tr></thead>
+          <tbody>
+            ${items.map(i => `<tr><td>${esc(PRODUCTS.find(p => p.key === i.product)?.label || i.product)}</td><td style="text-align:right">${num(i.quantity)}</td></tr>`).join('') || '<tr><td colspan="2" class="empty">No products</td></tr>'}
+            <tr style="font-weight:700;background:#f8fafc"><td>Total</td><td style="text-align:right">${total}</td></tr>
+          </tbody>
+        </table>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="printTransport('${t.id}')">Print Sheet</button>
+          <button class="btn btn-primary" onclick="closeTransportDetail();editTransport('${t.id}')">Edit</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderTransportForm() {
+  const t = state.editingTransport;
+  const isNew = !t.id;
+  const itemMap = {};
+  (t.items || []).forEach(i => itemMap[i.product] = num(i.quantity));
+
+  return `
+    <div class="modal-overlay" onclick="if(event.target===this) closeTransportForm()">
+      <div class="modal">
+        <h3>${isNew ? 'New Transport' : 'Edit Transport'}</h3>
+        <div class="form-grid">
+          <div class="field"><label>Reference *</label><input type="text" id="t-ref" value="${esc(t.reference)}" placeholder="TR-0001" /></div>
+          <div class="field"><label>TP Name *</label><input type="text" id="t-tp" value="${esc(t.tp_name)}" /></div>
+          <div class="field"><label>Date *</label><input type="date" id="t-date" value="${esc(t.transport_date)}" /></div>
+          <div class="field"><label>Status</label><select id="t-status">
+            ${STATUSES.map(s => `<option value="${s}" ${t.status === s ? 'selected' : ''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
+          </select></div>
+          <div class="field"><label>Destination</label><input type="text" id="t-dest" value="${esc(t.destination || '')}" /></div>
+          <div class="field"><label>Wilaya</label><input type="text" id="t-wilaya" value="${esc(t.wilaya || '')}" /></div>
+          <div class="field"><label>Driver Name</label><input type="text" id="t-driver" value="${esc(t.driver_name || '')}" /></div>
+          <div class="field"><label>Driver Phone</label><input type="text" id="t-phone" value="${esc(t.driver_phone || '')}" /></div>
+        </div>
+        <div class="section-title">Products</div>
+        <div class="form-grid">
+          ${PRODUCTS.map(p => `<div class="field"><label>${esc(p.label)}</label><input type="number" min="0" id="ti-${p.key}" value="${itemMap[p.key] || 0}" /></div>`).join('')}
+        </div>
+        <div class="field" style="margin-top:1rem"><label>Notes</label><textarea id="t-notes" rows="2">${esc(t.notes || '')}</textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeTransportForm()">Cancel</button>
+          <button class="btn btn-primary" id="save-transport-btn" onclick="saveTransport()">${isNew ? 'Create Transport' : 'Update Transport'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function newTransport() {
+  state.editingTransport = {
+    id: '', reference: 'TR-' + String(state.transports.length + 1).padStart(4, '0'),
+    tp_name: '', transport_date: todayISO(), destination: '', wilaya: '',
+    driver_name: '', driver_phone: '', status: 'planned', notes: '',
+    items: PRODUCTS.map(p => ({ product: p.key, quantity: 0 })),
+  };
+  render();
+}
+function editTransport(id) {
+  const t = state.transports.find(x => x.id === id);
+  if (!t) return;
+  state.editingTransport = JSON.parse(JSON.stringify(t));
+  render();
+}
+function closeTransportForm() { state.editingTransport = null; render(); }
+function viewTransport(id) { state.viewingTransport = state.transports.find(t => t.id === id); render(); }
+function closeTransportDetail() { state.viewingTransport = null; render(); }
+
+let savingTransport = false;
+function saveTransport() {
+  if (savingTransport) return;
+  const ref = document.getElementById('t-ref').value.trim();
+  const tp = document.getElementById('t-tp').value.trim();
+  const date = document.getElementById('t-date').value;
+  if (!ref) { showToast('Reference is required', 'error'); return; }
+  if (!tp) { showToast('TP Name is required', 'error'); return; }
+  if (!date) { showToast('Date is required', 'error'); return; }
+
+  const items = PRODUCTS.map(p => ({ product: p.key, quantity: num(document.getElementById('ti-' + p.key).value) }));
+  const payload = {
+    reference: ref, tp_name: tp, transport_date: date,
+    destination: document.getElementById('t-dest').value.trim(),
+    wilaya: document.getElementById('t-wilaya').value.trim(),
+    driver_name: document.getElementById('t-driver').value.trim(),
+    driver_phone: document.getElementById('t-phone').value.trim(),
+    status: document.getElementById('t-status').value,
+    notes: document.getElementById('t-notes').value.trim(),
+    items,
+  };
+
+  savingTransport = true;
+  const btn = document.getElementById('save-transport-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  if (state.editingTransport.id) {
+    const idx = state.transports.findIndex(t => t.id === state.editingTransport.id);
+    state.transports[idx] = { ...state.transports[idx], ...payload };
+  } else {
+    state.transports.unshift({ id: uid(), ...payload, created_at: new Date().toISOString() });
+  }
+  DB.transports = state.transports; DB.save();
+  savingTransport = false;
+  state.editingTransport = null;
+  showToast('Transport saved');
+}
+
+function deleteTransport(id) {
+  if (!confirm('Delete this transport and all its items?')) return;
+  state.transports = state.transports.filter(t => t.id !== id);
+  DB.transports = state.transports; DB.save();
+  showToast('Transport deleted');
+}
+
+function printTransport(id) {
+  const t = state.transports.find(x => x.id === id);
+  if (!t) return;
+  const items = (t.items || []).filter(i => num(i.quantity) > 0);
+  const total = items.reduce((a, i) => a + num(i.quantity), 0);
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>${esc(t.reference)}</title>
+    <style>body{font-family:system-ui;padding:2rem}h1{margin-bottom:.25rem}
+    table{width:100%;border-collapse:collapse;margin-top:1rem}
+    th,td{border:1px solid #cbd5e1;padding:.5rem;text-align:left;font-size:.9rem}
+    th{background:#f1f5f9}.meta{margin-top:1rem;font-size:.9rem;line-height:1.7}</style></head><body>
+    <h1>Transport Sheet — ${esc(t.reference)}</h1>
+    <div class="meta">
+      <div><strong>Date:</strong> ${fmtDate(t.transport_date)}</div>
+      <div><strong>TP Name:</strong> ${esc(t.tp_name)}</div>
+      <div><strong>Destination:</strong> ${esc(t.destination || '—')} ${t.wilaya ? '/ ' + esc(t.wilaya) : ''}</div>
+      <div><strong>Driver:</strong> ${esc(t.driver_name || '—')} ${t.driver_phone ? '— ' + esc(t.driver_phone) : ''}</div>
+      <div><strong>Status:</strong> ${esc(t.status)}</div>
+      <div><strong>Notes:</strong> ${esc(t.notes || '—')}</div>
+    </div>
+    <table><thead><tr><th>Product</th><th>Quantity</th></tr></thead><tbody>
+    ${items.map(i => `<tr><td>${esc(PRODUCTS.find(p => p.key === i.product)?.label || i.product)}</td><td>${num(i.quantity)}</td></tr>`).join('')}
+    <tr><td><strong>Total</strong></td><td><strong>${total}</strong></td></tr>
+    </tbody></table>
+    <p style="margin-top:2rem;font-size:.85rem;color:#64748b">Generated ${new Date().toLocaleString()}</p>
+    </body></html>`);
+  w.document.close();
+  w.print();
+}
+
+// ============================================================
+// PAGE: REPORTS
+// ============================================================
+function renderReports() {
+  const filtered = applyFilters(state.entries, state.filters);
+  const t = computeTotals(filtered);
+  const paidTotals = computePaidTotals(filtered);
+
+  const byDay = {}, byWeek = {}, byMonth = {};
+  filtered.forEach(e => {
+    byDay[e.entry_date] = byDay[e.entry_date] || [];
+    byDay[e.entry_date].push(e);
+    const wk = getWeekKey(e.entry_date);
+    byWeek[wk] = byWeek[wk] || [];
+    byWeek[wk].push(e);
+    const mk = getMonthKey(e.entry_date);
+    byMonth[mk] = byMonth[mk] || [];
+    byMonth[mk].push(e);
+  });
+
+  const periodRows = (obj) => Object.keys(obj).sort().reverse().slice(0, 12).map(k => {
+    const tot = computeTotals(obj[k]);
+    return `<tr><td>${esc(k)}</td><td style="text-align:right">${obj[k].length}</td>
+      <td style="text-align:right">${tot.total_somiers}</td>
+      <td style="text-align:right">${tot.total_matelas}</td>
+      <td style="text-align:right">${tot.total_accessoires}</td>
+      <td style="text-align:right;font-weight:700">${tot.total_all}</td></tr>`;
+  }).join('');
+
+  const productRows = PRODUCTS.map(p => {
+    const qty = filtered.reduce((a, e) => a + (isProductPaid(e, p.key) ? 0 : num(e[p.key])), 0);
+    const paidQty = filtered.reduce((a, e) => a + (isProductPaid(e, p.key) ? num(e[p.key]) : 0), 0);
+    return `<tr>
+      <td>${esc(p.label)}</td>
+      <td style="text-align:right">${qty}</td>
+      <td style="text-align:right;color:#059669">${paidQty}</td>
+      <td><div style="background:#e2e8f0;border-radius:4px;height:8px;overflow:hidden">
+        <div style="background:#4f46e5;height:100%;width:${t.total_all ? (qty / t.total_all * 100) : 0}%"></div>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  return `
+    <div class="page-header">
+      <div><h2>Reports & History</h2><p>Summaries, product reports, and export options</p></div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="exportEntriesExcel()">Export Excel</button>
+        <button class="btn btn-secondary" onclick="window.print()">Print</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="filters">
+        <div class="field"><label>Search</label><input type="text" value="${esc(state.filters.search)}" placeholder="TP name..." oninput="updateFilter('search', this.value)" /></div>
+        <div class="field"><label>From</label><input type="date" value="${esc(state.filters.from)}" onchange="updateFilter('from', this.value)" /></div>
+        <div class="field"><label>To</label><input type="date" value="${esc(state.filters.to)}" onchange="updateFilter('to', this.value)" /></div>
+        <div class="field"><label>TP Name</label><select onchange="updateFilter('tp', this.value)">
+          <option value="">All</option>
+          ${[...new Set(state.entries.map(e => e.tp_name))].sort().map(n => `<option value="${esc(n)}" ${state.filters.tp === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}
+        </select></div>
+        <div class="field"><label>Payment</label><select onchange="updateFilter('payment', this.value)">
+          <option value="">All</option>
+          <option value="unpaid" ${state.filters.payment === 'unpaid' ? 'selected' : ''}>Unpaid Only</option>
+          <option value="paid" ${state.filters.payment === 'paid' ? 'selected' : ''}>Paid Only</option>
+        </select></div>
+        <button class="btn btn-secondary btn-sm" onclick="clearFilters()">Clear</button>
+      </div>
+    </div>
+
+    <div class="cards">
+      ${summaryCard('Records', filtered.length, 'indigo')}
+      ${summaryCard('Unpaid Total', t.total_all, 'emerald')}
+      ${summaryCard('Paid Total', paidTotals.total_all, '')}
+      ${summaryCard('Grand Total (All)', t.total_all + paidTotals.total_all, 'amber')}
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h3>Product Report</h3>
+        <table><thead><tr><th>Product</th><th style="text-align:right">Unpaid</th><th style="text-align:right">Paid</th><th>Share</th></tr></thead>
+        <tbody>${productRows}</tbody></table>
+      </div>
+      <div class="panel">
+        <h3>Daily Summary (last 12)</h3>
+        <div class="table-wrap"><table><thead><tr><th>Day</th><th style="text-align:right">Entries</th><th style="text-align:right">Somiers</th><th style="text-align:right">Matelas</th><th style="text-align:right">Access.</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>${periodRows(byDay) || '<tr><td colspan="6" class="empty">No data</td></tr>'}</tbody></table></div>
+      </div>
+      <div class="panel">
+        <h3>Weekly Summary (last 12)</h3>
+        <div class="table-wrap"><table><thead><tr><th>Week</th><th style="text-align:right">Entries</th><th style="text-align:right">Somiers</th><th style="text-align:right">Matelas</th><th style="text-align:right">Access.</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>${periodRows(byWeek) || '<tr><td colspan="6" class="empty">No data</td></tr>'}</tbody></table></div>
+      </div>
+      <div class="panel">
+        <h3>Monthly Summary (last 12)</h3>
+        <div class="table-wrap"><table><thead><tr><th>Month</th><th style="text-align:right">Entries</th><th style="text-align:right">Somiers</th><th style="text-align:right">Matelas</th><th style="text-align:right">Access.</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>${periodRows(byMonth) || '<tr><td colspan="6" class="empty">No data</td></tr>'}</tbody></table></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Transport History</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Reference</th><th>Date</th><th>TP Name</th><th>Destination</th><th>Status</th><th style="text-align:right">Qty</th></tr></thead>
+        <tbody>
+          ${state.transports.length ? state.transports.map(tp => `<tr>
+            <td>${esc(tp.reference)}</td><td>${fmtDate(tp.transport_date)}</td><td>${esc(tp.tp_name)}</td>
+            <td>${esc(tp.destination || '—')}</td><td>${statusBadge(tp.status)}</td>
+            <td style="text-align:right">${(tp.items||[]).reduce((a,i)=>a+num(i.quantity),0)}</td>
+          </tr>`).join('') : '<tr><td colspan="6" class="empty">No transports</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+}
+
+function exportEntriesExcel() {
+  const filtered = applyFilters(state.entries, state.filters);
+  if (!filtered.length) { showToast('No data to export', 'error'); return; }
+  const header = ['Date', 'TP Name', ...PRODUCTS.map(p => p.label), 'Total',
+                  ...PRODUCTS.map(p => p.label + ' (Paid)')];
+  const rows = filtered.map(e => [
+    e.entry_date, e.tp_name,
+    ...PRODUCTS.map(p => num(e[p.key])),
+    sumKeys(e, ALL_KEYS),
+    ...PRODUCTS.map(p => isProductPaid(e, p.key) ? 'Yes' : 'No'),
+  ]);
+  const csv = [header, ...rows].map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `inventory-entries-${todayISO()}.csv`;
+  a.click();
+  showToast('Exported to CSV (opens in Excel)');
+}
+
+// ============================================================
+// PAGE: SETTINGS
+// ============================================================
+function renderSettings() {
+  const unpaidCount = state.entries.filter(e => entryPaymentStatus(e).label !== 'Paid').length;
+  const paidCount = state.entries.filter(e => entryPaymentStatus(e).label === 'Paid').length;
+  return `
+    <div class="page-header"><div><h2>Settings</h2><p>Configuration and account information</p></div></div>
+
+    <div class="panel">
+      <h3>Account</h3>
+      <div class="stat-row"><span class="k">Signed in as</span><span class="v">${esc(state.currentUser?.displayName || '—')}</span></div>
+      <div class="stat-row"><span class="k">Username</span><span class="v"><code>${esc(state.currentUser?.username || '—')}</code></span></div>
+      <div class="stat-row"><span class="k">Role</span><span class="v">${state.isAdmin ? '👑 Admin (full access)' : '👤 User (no payment buttons)'}</span></div>
+    </div>
+
+    ${state.isAdmin ? `
+    <div class="panel">
+      <h3>Undo Payment (Admin)</h3>
+      <p style="font-size:.8rem;color:#64748b;margin-bottom:.75rem">Click a product to mark it as unpaid again — its quantities will return to the totals.</p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        ${PRODUCTS.map(p => `<button class="btn btn-secondary btn-sm" onclick="markProductAsUnpaid('${p.key}')">↩ Undo ${esc(p.label)}</button>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <div class="panel">
+      <h3>Database Connection</h3>
+      <ol style="font-size:.875rem;color:#475569;line-height:1.9;padding-left:1.25rem">
+        <li>Create a project at <strong>supabase.com</strong></li>
+        <li>Run the SQL schema in the Supabase SQL Editor</li>
+        <li>Copy your Project URL and anon key into <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code></li>
+        <li>Enable Row Level Security policies so each user only accesses their own data</li>
+      </ol>
+      <div class="stat-row" style="margin-top:1rem"><span class="k">Status</span><span class="v">${SUPABASE_URL === 'YOUR_SUPABASE_URL' ? '⚠️ Local mode (not connected)' : '✅ Connected'}</span></div>
+      <div class="stat-row"><span class="k">Entries stored</span><span class="v">${state.entries.length}</span></div>
+      <div class="stat-row"><span class="k">Unpaid entries</span><span class="v">${unpaidCount}</span></div>
+      <div class="stat-row"><span class="k">Fully paid entries</span><span class="v">${paidCount}</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Data Management</h3>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="exportEntriesExcel()">Export Entries (CSV)</button>
+        <button class="btn btn-secondary" onclick="exportBackup()">Download Full Backup (JSON)</button>
+        <button class="btn btn-danger" onclick="clearAllData()">Clear All Local Data</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Product Catalog</h3>
+      <table><thead><tr><th>Product</th><th>Group</th><th>Key</th></tr></thead>
+      <tbody>${PRODUCTS.map(p => `<tr><td>${esc(p.label)}</td><td>${esc(p.group)}</td><td><code>${esc(p.key)}</code></td></tr>`).join('')}</tbody>
+    </table>
+    </div>
+  `;
+}
+
+function exportBackup() {
+  const data = { exported_at: new Date().toISOString(), entries: state.entries, transports: state.transports };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `inventory-backup-${todayISO()}.json`;
+  a.click();
+  showToast('Backup downloaded');
+}
+
+function clearAllData() {
+  if (!confirm('This will permanently delete ALL entries and transports. Continue?')) return;
+  if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+  state.entries = []; state.transports = [];
+  DB.entries = []; DB.transports = []; DB.save();
+  showToast('All data cleared');
+}
+
+// ============================================================
+// NAVIGATION & RENDER
+// ============================================================
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+  { id: 'new-entry', label: 'New Entry', icon: '➕' },
+  { id: 'all-entries', label: 'All Entries', icon: '📋' },
+  { id: 'transports', label: 'Transports', icon: '🚚' },
+  { id: 'reports', label: 'Reports', icon: '📈' },
+  { id: 'settings', label: 'Settings', icon: '⚙️' },
+];
+
+function navigate(page) {
+  state.page = page;
+  state.viewingTransport = null;
+  state.editingTransport = null;
+  window.scrollTo(0, 0);
+  render();
+  if (page === 'new-entry') setTimeout(updateEntryTotals, 0);
+}
+
+function updateFilter(key, value) {
+  state.filters[key] = value;
+  render();
+}
+function clearFilters() {
+  state.filters = { from: '', to: '', tp: '', search: '', payment: '' };
+  render();
+}
+
+function renderPage() {
+  switch (state.page) {
+    case 'dashboard': return renderDashboard();
+    case 'new-entry': return renderNewEntry();
+    case 'all-entries': return renderAllEntries();
+    case 'transports': return renderTransports();
+    case 'reports': return renderReports();
+    case 'settings': return renderSettings();
+    default: return renderDashboard();
+  }
+}
+
+function render() {
+  const app = document.getElementById('root');
+
+  if (state.page === 'login') {
+    app.innerHTML = `
+      <div class="login-wrap">
+        <div class="login-card">
+          <h2>Welcome back</h2>
+          <p class="sub">Sign in to Inventory & Transport Manager</p>
+          ${state.loginError ? `<div class="login-error">⚠️ ${esc(state.loginError)}</div>` : ''}
+          <div class="field" style="margin-bottom:.75rem">
+            <label>Username</label>
+            <input type="text" id="login-user" placeholder="username" autocomplete="username"
+              onkeydown="if(event.key==='Enter') doLogin()" />
+          </div>
+          <div class="field" style="margin-bottom:1rem">
+            <label>Password</label>
+            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"
+              onkeydown="if(event.key==='Enter') doLogin()" />
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign In</button>
+          <div class="login-hint">
+            <strong>Admin:</strong> basset / wassim123<br>
+            <strong>User:</strong> hicham / 00000
+          </div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  app.innerHTML = `
+    <div class="app">
+      <aside class="sidebar ${state.sidebarOpen ? 'open' : ''}" id="sidebar">
+        <h1>📦 Inventory & Transport</h1>
+        <nav>
+          ${NAV.map(n => `<a class="${state.page === n.id ? 'active' : ''}" onclick="navigate('${n.id}')">${n.icon} ${n.label}</a>`).join('')}
+        </nav>
+        <div style="margin-top:2rem;padding-top:1rem;border-top:1px solid #1e293b">
+          <div style="font-size:.75rem;color:#94a3b8;padding:.4rem .9rem;line-height:1.6">
+            ${esc(state.currentUser?.displayName || '')}<br>
+            <strong style="color:#a5b4fc">${state.isAdmin ? '👑 Admin' : '👤 User'}</strong>
+          </div>
+          <a onclick="doLogout()">🚪 Sign Out</a>
+        </div>
+      </aside>
+      <div style="flex:1">
+        <div class="mobile-header">
+          <span style="font-weight:600">📦 Inventory & Transport</span>
+          <button onclick="toggleSidebar()">☰</button>
+        </div>
+        <main class="main">${renderPage()}</main>
+      </div>
+    </div>
+    ${state.toast ? `<div class="toast">${state.toast.type === 'error' ? '⚠️ ' : '✅ '}${esc(state.toast.msg)}</div>` : ''}
+  `;
+}
+
+function toggleSidebar() { state.sidebarOpen = !state.sidebarOpen; render(); }
+
+function doLogin() {
+  const userEl = document.getElementById('login-user');
+  const passEl = document.getElementById('login-pass');
+  const username = (userEl?.value || '').trim().toLowerCase();
+  const password = passEl?.value || '';
+
+  state.loginError = '';
+
+  if (!username || !password) {
+    state.loginError = 'Please enter both username and password';
+    render();
+    return;
+  }
+
+  const account = ACCOUNTS.find(a => a.username === username && a.password === password);
+  if (!account) {
+    state.loginError = 'Invalid username or password';
+    render();
+    return;
+  }
+
+  state.currentUser = account;
+  state.isAdmin = account.role === 'admin';
+  state.page = 'dashboard';
+  state.sidebarOpen = false;
+  showToast(`Welcome, ${account.displayName}!`);
+}
+
+function doLogout() {
+  if (!confirm('Sign out?')) return;
+  state.currentUser = null;
+  state.isAdmin = false;
+  state.page = 'login';
+  state.loginError = '';
+  state.entries = [...DB.entries];
+  state.transports = [...DB.transports];
+  render();
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+render();
+</script>
+</body>
+</html>
